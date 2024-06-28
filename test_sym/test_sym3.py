@@ -157,7 +157,7 @@ max2_codegen = codegen.Codegen.function(
 )
     
 output_dir="/root/dev/python_ws/test_sym"
-# max2_data = max2_codegen.generate_function(output_dir)
+max2_data = max2_codegen.generate_function(output_dir)
 
 
 
@@ -243,7 +243,7 @@ max4_data = max4_codegen.generate_function(output_dir)
 
 def max5(a: sf.Scalar, b: sf.Scalar) -> sf.Scalar:
     retval = None
-    if(a > b): return a#retval
+    if(a > b): return a #retval
 
     retval = a + b
 
@@ -258,3 +258,72 @@ max5_codegen = codegen.Codegen.function(
     config=codegen.CppConfig(),
 )
 max5_data = max5_codegen.generate_function(output_dir)
+
+
+
+
+def func1(a: sf.Scalar, b: sf.Scalar) -> sf.Scalar:
+    retval = None
+
+    retval = a + b
+    return retval
+
+def func2(a: sf.Scalar, b: sf.Scalar) -> sf.Scalar:
+    retval = None
+
+    list1 = ["aa", "bb"]
+
+    # if a > b:
+    # if a < b:
+    # if a < 3:
+    if list1[1] == "cc":
+        a += 1
+
+    c = a * b
+    d = a - b
+    retval = func1(c, d)
+    return retval
+
+
+print(f"func2(8, 6)={func2(8, 6)}")
+
+print(f"func2(6, 8)={func2(6, 8)}")
+
+func2_codegen = codegen.Codegen.function(
+    func=func2,
+    config=codegen.CppConfig(),
+)
+func2_data = func2_codegen.generate_function(output_dir)
+
+
+def func3(P_old: sf.M33) -> sf.Matrix33:
+    # P_new = sf.Matrix33(1, 2, 3, 4, 5, 6, 7, 8, 9) #sf.Matrix(3, 3,)
+    # display(P_new)
+    P_new = sf.M33()
+    for index in range(3):
+        for j in range(3):
+            if index > j:
+                P_new[index,j] = 0
+            else:
+                P_new[index,j] = P_old[index,j]
+
+    # display(P_new)
+
+    return P_new
+
+P_old = sf.Matrix33(1, 2, 3, 4, 5, 6, 7, 8, 9)
+display(func3(P_old))
+func3_codegen = codegen.Codegen.function(
+    func=func3,
+    config=codegen.CppConfig(),
+)
+func3_data = func3_codegen.generate_function(output_dir)
+
+# to_tangent
+R6 = sf.Rot3.random()
+tangent_vec = R6.to_tangent()
+R6_recovered = sf.Rot3.from_tangent(tangent_vec)
+
+assert len(tangent_vec) == R6.tangent_dim()
+display(R6)
+display(R6_recovered)
