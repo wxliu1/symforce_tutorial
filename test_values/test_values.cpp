@@ -60,6 +60,9 @@ int main(int argc, char** argv)
     // values.Set('x', "abc"); // error
     std::cout << "'x'=" << values.At<double>('x') << std::endl;
 
+    // values.Set('y', 10); // error
+    // std::cout << "'y'=" << values.At<int>('y') << std::endl; // error
+
 /*
     std::cout << "{'P', 0}=" << values.At<sym::Pose2d>({'P', 0}) << std::endl;
     std::cout << "{'L', 0}=" << values.At<Eigen::Vector2d>({'L', 0}).transpose() << std::endl;
