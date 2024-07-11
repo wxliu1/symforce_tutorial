@@ -51,7 +51,7 @@ def projection_residual(
     return residual
 
 
-def deltaQ(theta: sf.M31) -> sf.Quaternion:
+def deltaQ1(theta: sf.M31) -> sf.Quaternion:
     half_theta = theta
     half_theta /= 2.0
     # w = 1.0
@@ -60,6 +60,17 @@ def deltaQ(theta: sf.M31) -> sf.Quaternion:
     # z = half_theta.z
 
     return sf.Quaternion(xyz=half_theta, w=1.0)
+
+def deltaQ(theta: sf.M31) -> sf.Rot3: # 2024-7-11
+    half_theta = theta
+    half_theta /= 2.0
+    # w = 1.0
+    # x = half_theta.x
+    # y = half_theta.y
+    # z = half_theta.z
+
+    # return sf.Rot3(sf.Quaternion(xyz=half_theta, w=1.0))    
+    return sf.Rot3.from_storage([half_theta.x, half_theta.y, half_theta.z, 1.0])    
 
 # imu残差：15维
 def imu_residual(
@@ -74,7 +85,8 @@ def imu_residual(
     Baj: sf.V3,
     Bgj: sf.V3,
     delta_p: sf.V3,
-    delta_q: sf.Quaternion,
+    # delta_q: sf.Quaternion,
+    delta_q: sf.Rot3, # seems to don't have sym::Quaternion, so use sf.Rot3 here 2024-7-11
     delta_v: sf.V3,
     G: sf.V3, # gravity
     sum_dt: sf.Scalar,
@@ -84,7 +96,8 @@ def imu_residual(
     dv_dba: sf.M33,
     dv_dbg: sf.M33,
     linearized_ba: sf.V3,
-    linearized_bg: sf.V3
+    linearized_bg: sf.V3,
+    sqrt_info: sf.Matrix(15, 15) # newly add on 2024-7-11
 ) -> sf.Matrix:
     dba = Bai - linearized_ba
     dbg = Bgi - linearized_bg
@@ -94,14 +107,15 @@ def imu_residual(
     corrected_delta_p = delta_p + dp_dba * dba + dp_dbg * dbg
 
     r_p = Qi.inverse() * (0.5 * G * sum_dt * sum_dt + Pj - Pi - Vi * sum_dt) - corrected_delta_p
-    # r_q = 2 * (corrected_delta_q.inverse() * (Qi.inverse() * Qj)).q.xyz
-    corrected_delta_q2 = sf.Rot3(corrected_delta_q)
-    r_q = 2 * (corrected_delta_q2.inverse() * (Qi.inverse() * Qj)).q.xyz
+    r_q = 2 * (corrected_delta_q.inverse() * (Qi.inverse() * Qj)).q.xyz # uncomment on 2024-7-11
+    # corrected_delta_q2 = sf.Rot3(corrected_delta_q) # comment on 2024-7-11
+    # r_q = 2 * (corrected_delta_q2.inverse() * (Qi.inverse() * Qj)).q.xyz # comment on 2024-7-11
     r_v = Qi.inverse() * (G * sum_dt + Vj - Vi) - corrected_delta_v
     r_ba = Baj - Bai
     r_bg = Bgj - Bgi
 
-    return sf.Matrix.block_matrix([[r_p], [r_q], [r_v], [r_ba], [r_bg]])
+    # return sf.Matrix.block_matrix([[r_p], [r_q], [r_v], [r_ba], [r_bg]])
+    return sqrt_info * sf.Matrix.block_matrix([[r_p], [r_q], [r_v], [r_ba], [r_bg]]) # 2024-7-11
 
 
 
