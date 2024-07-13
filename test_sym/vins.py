@@ -3,6 +3,9 @@ symforce.set_epsilon_to_symbol()
 
 from symforce import typing as T # 导入symforce包里面的typing模块到当前模块的命名空间，并重命名为T
 
+from symforce.opt.noise_models import BarronNoiseModel
+from symforce.opt.noise_models import ScalarNoiseModel
+
 from symforce import codegen
 from symforce.codegen import codegen_util
 
@@ -30,6 +33,9 @@ def projection_residual(
     inv_dep_i: sf.Scalar,
     #sqrt_info: sf.M22,
     # epsilon: sf.Scalar
+    weight: sf.Scalar, # 2024-7-13
+    epsilon: sf.Scalar,
+    noise_model: ScalarNoiseModel,
  ) -> sf.V2:
     pts_camera_i = pts_i / inv_dep_i
     # pts_camera_i = pts_i / (inv_dep_i + epsilon)
@@ -41,15 +47,60 @@ def projection_residual(
     # 求归一化平面的重投影误差
     # dep_j = pts_camera_j.z
     # residual = (pts_camera_j / dep_j).head<2>() - pts_j.head<2>()
-    pts_camera_j_Normalized = pts_camera_j / pts_camera_j.z
-    # pts_camera_j_Normalized = pts_camera_j / (pts_camera_j.z + epsilon)
+    # pts_camera_j_Normalized = pts_camera_j / pts_camera_j.z
+    pts_camera_j_Normalized = pts_camera_j / (pts_camera_j.z + epsilon)
     r_x = pts_camera_j_Normalized.x - pts_j.x
     r_y = pts_camera_j_Normalized.y - pts_j.y
     residual = sf.V2(r_x, r_y)
-    residual = sqrt_info * residual
+    # residual = sqrt_info * residual
+    # return residual
 
-    return residual
+    # 2024-7-13.
+    warp_is_valid = 1
+    reprojection_error = sqrt_info * residual
+    whitened_residual = (
+        warp_is_valid * sf.sqrt(weight) * noise_model.whiten_norm(reprojection_error, epsilon)
+    )
 
+    return whitened_residual
+
+def projection_gnc_residual(
+    pts_i: sf.V3,
+    pts_j: sf.V3,
+    Pi: sf.V3,
+    Qi: sf.Rot3,
+    Pj: sf.V3,
+    Qj: sf.Rot3,
+    tic: sf.V3,
+    qic: sf.Rot3,
+    inv_dep_i: sf.Scalar,
+    #sqrt_info: sf.M22,
+    weight: sf.Scalar,
+    gnc_mu: sf.Scalar,
+    gnc_scale: sf.Scalar,
+    epsilon: sf.Scalar,
+ ) -> sf.V2:
+    # TODO:
+    noise_model = BarronNoiseModel(
+        alpha=BarronNoiseModel.compute_alpha_from_mu(gnc_mu, epsilon),
+        scalar_information=1 / gnc_scale**2,
+        x_epsilon=epsilon,
+    )
+
+    return projection_residual(
+        pts_i,
+        pts_j,
+        Pi,
+        Qi,
+        Pj,
+        Qj,
+        tic,
+        qic,
+        inv_dep_i,
+        weight,
+        epsilon,
+        noise_model,
+    )
 
 def deltaQ1(theta: sf.M31) -> sf.Quaternion:
     half_theta = theta
@@ -126,7 +177,8 @@ def generate_projection_residual_code(
     output_dir: T.Optional[Path] = None, print_code: bool = False
 ) -> None:
     projection_codegen = codegen.Codegen.function(
-        func=projection_residual,
+        # func=projection_residual,
+        func=projection_gnc_residual,
         config=codegen.CppConfig(),
     )
 
@@ -172,9 +224,9 @@ def generate_imu_residual_code(
         output_dir=output_dir, skip_directory_nesting=False
     )
 
-# generate_projection_residual_code(output_dir)
+generate_projection_residual_code(output_dir)
 
-generate_imu_residual_code(output_dir)
+# generate_imu_residual_code(output_dir)
 
 # Qi: sf.Rot3 = sf.Rot3.symbolic("Qi")
 # Qj: sf.Rot3 = sf.Rot3.symbolic("Qj")
