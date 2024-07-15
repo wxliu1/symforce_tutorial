@@ -20,6 +20,22 @@ FOCAL_LENGTH = 460.0
 # sqrt_info: sf.M22 = FOCAL_LENGTH / 1.5 * sf.Matrix22.eye()
 sqrt_info: sf.M22 = FOCAL_LENGTH / 1.5 * sf.I22(2, 2)
 
+class CauchyLoss:
+    # b: sf.Scalar
+    # c: sf.Scalar
+    def __init__(self, a: sf.Scalar):
+       self.b_ = a * a
+       self.c_ = 1 / b_
+
+   def Evaluate(s: sf.Scalar, rho: sf.V3) ->sf.V3:
+       sum = 1.0 + s * c_
+       inv = 1.0 / sum
+       # 'sum' and 'inv' are always positive, assuming that 's' is.
+    #    rho0 = b_ * log(sum)
+    #    rho1 = std::max(std::numeric_limits<double>::min(), inv)
+    #    rho2 = - c_ * (inv * inv)
+    #    return sf.V3(rho0, rho1, rho2)
+
 # 重投影残差：2维
 def projection_residual(
     pts_i: sf.V3,
